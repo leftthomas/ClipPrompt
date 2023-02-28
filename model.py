@@ -1,108 +1,71 @@
+import math
+
 import timm
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels):
-        super(ResidualBlock, self).__init__()
-
-        self.conv = nn.Sequential(nn.Conv2d(in_channels, in_channels, 3, padding=1, padding_mode='reflect'),
-                                  nn.InstanceNorm2d(in_channels), nn.ReLU(inplace=True),
-                                  nn.Conv2d(in_channels, in_channels, 3, padding=1, padding_mode='reflect'),
-                                  nn.InstanceNorm2d(in_channels))
+class SimAM(nn.Module):
+    def __init__(self, eps=1e-4):
+        super(SimAM, self).__init__()
+        self.eps = eps
 
     def forward(self, x):
-        return x + self.conv(x)
+        b, c, h, w = x.size()
+        n = h * w
+        d = (x - x.mean(dim=[2, 3], keepdim=True)).pow(2)
+        y = d / (4 * (d.sum(dim=[2, 3], keepdim=True) / n + self.eps)) + 0.5
+        return torch.sigmoid(y)
 
 
-class Generator(nn.Module):
-    def __init__(self, in_channels=64, num_block=9):
-        super(Generator, self).__init__()
+class EnergyAttention(nn.Module):
+    def __init__(self, low_dim, high_dim):
+        super(EnergyAttention, self).__init__()
+        self.conv = nn.Conv2d(high_dim, low_dim, kernel_size=3, padding=1)
+        self.atte = SimAM()
 
-        # in conv
-        self.in_conv = nn.Sequential(nn.Conv2d(3, in_channels, 7, padding=3, padding_mode='reflect'),
-                                     nn.InstanceNorm2d(in_channels), nn.ReLU(inplace=True))
-
-        # down sample
-        down_sample = []
-        for _ in range(2):
-            out_channels = in_channels * 2
-            down_sample += [nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1),
-                            nn.InstanceNorm2d(out_channels), nn.ReLU(inplace=True)]
-            in_channels = out_channels
-        self.down_sample = nn.Sequential(*down_sample)
-
-        # conv blocks
-        self.convs = nn.Sequential(*[ResidualBlock(in_channels) for _ in range(num_block)])
-
-        # up sample
-        up_sample = []
-        for _ in range(2):
-            out_channels = in_channels // 2
-            up_sample += [nn.ConvTranspose2d(in_channels, out_channels, 3, stride=2, padding=1, output_padding=1),
-                          nn.InstanceNorm2d(out_channels), nn.ReLU(inplace=True)]
-            in_channels = out_channels
-        self.up_sample = nn.Sequential(*up_sample)
-
-        # out conv
-        self.out_conv = nn.Sequential(nn.Conv2d(in_channels, 3, 7, padding=3, padding_mode='reflect'), nn.Tanh())
-
-    def forward(self, x):
-        x = self.in_conv(x)
-        x = self.down_sample(x)
-        x = self.convs(x)
-        x = self.up_sample(x)
-        out = self.out_conv(x)
-        return out
+    def forward(self, low_feat, high_feat):
+        high_feat = F.interpolate(self.conv(high_feat), low_feat.size()[-2:], mode='bilinear', align_corners=False)
+        atte = self.atte(torch.relu(low_feat + high_feat))
+        low_feat = atte * low_feat
+        return atte, low_feat
 
 
-class Discriminator(nn.Module):
-    def __init__(self, in_channels=64):
-        super(Discriminator, self).__init__()
-
-        self.conv1 = nn.Sequential(nn.Conv2d(3, in_channels, 4, stride=2, padding=1), nn.LeakyReLU(0.2, inplace=True))
-
-        self.conv2 = nn.Sequential(nn.Conv2d(in_channels, in_channels * 2, 4, stride=2, padding=1),
-                                   nn.InstanceNorm2d(in_channels * 2), nn.LeakyReLU(0.2, inplace=True))
-
-        self.conv3 = nn.Sequential(nn.Conv2d(in_channels * 2, in_channels * 4, 4, stride=2, padding=1),
-                                   nn.InstanceNorm2d(in_channels * 4), nn.LeakyReLU(0.2, inplace=True))
-
-        self.conv4 = nn.Sequential(nn.Conv2d(in_channels * 4, in_channels * 8, 4, padding=1),
-                                   nn.InstanceNorm2d(in_channels * 8), nn.LeakyReLU(0.2, inplace=True))
-
-        self.conv5 = nn.Conv2d(in_channels * 8, 1, 4, padding=1)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        out = self.conv5(x)
-        return out
-
-
-class Extractor(nn.Module):
-    def __init__(self, backbone_type, emb_dim, proxies):
-        super(Extractor, self).__init__()
+class Model(nn.Module):
+    def __init__(self, backbone_type, proj_dim, proxies):
+        super(Model, self).__init__()
 
         # backbone
-        model_name = 'resnet50' if backbone_type == 'resnet50' else 'vgg16'
-        self.backbone = timm.create_model(model_name, pretrained=True, num_classes=emb_dim, global_pool='max')
-        # self.proxies = nn.Parameter(torch.Tensor(len(proxies), emb_dim))
-        # nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
+        self.backbone = timm.create_model('seresnet50' if backbone_type == 'resnet50' else 'vgg16_bn',
+                                          features_only=True, out_indices=(2, 3, 4), pretrained=True)
+        dims = [512, 1024, 2048] if backbone_type == 'resnet50' else [256, 512, 512]
+
+        # atte
+        self.energy_1 = EnergyAttention(dims[0], dims[2])
+        self.energy_2 = EnergyAttention(dims[1], dims[2])
+
+        # proj
+        self.proj = nn.Linear(sum(dims), proj_dim)
+
+        # proxy
+        self.proxies = nn.Parameter(torch.Tensor(len(proxies), proj_dim))
+        nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
         # self.register_buffer('proxies', proxies)
-        self.proxies = nn.Parameter(proxies)
+        # self.proxies = nn.Parameter(proxies)
 
-    def forward(self, x):
-        x = self.backbone(x)
-        feature = F.normalize(x, dim=-1)
-        classes = feature.matmul(F.normalize(self.proxies, dim=-1).t())
-        return feature, classes
+    def forward(self, img):
+        block_1_feat, block_2_feat, block_3_feat = self.backbone(img)
 
+        block_1_atte, block_1_feat = self.energy_1(block_1_feat, block_3_feat)
+        block_2_atte, block_2_feat = self.energy_2(block_2_feat, block_3_feat)
+        block_3_atte = torch.sigmoid(block_3_feat)
 
-def set_bn_eval(m):
-    classname = m.__class__.__name__
-    if classname.find('BatchNorm2d') != -1:
-        m.eval()
+        block_1_feat = torch.flatten(F.adaptive_max_pool2d(block_1_feat, (1, 1)), start_dim=1)
+        block_2_feat = torch.flatten(F.adaptive_max_pool2d(block_2_feat, (1, 1)), start_dim=1)
+        block_3_feat = torch.flatten(F.adaptive_max_pool2d(block_3_feat, (1, 1)), start_dim=1)
+
+        feat = torch.cat((block_1_feat, block_2_feat, block_3_feat), dim=-1)
+        proj = F.normalize(self.proj(feat), dim=-1)
+        classes = proj.matmul(F.normalize(self.proxies, dim=-1).t())
+        return block_1_atte, block_2_atte, block_3_atte, proj, classes

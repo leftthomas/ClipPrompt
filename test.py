@@ -14,7 +14,7 @@ if __name__ == '__main__':
                         help='Query image name')
     parser.add_argument('--data_base', default='result/sketchy_resnet50_512_vectors.pth', type=str,
                         help='Queried database')
-    parser.add_argument('--num', default=5, type=int, help='Retrieval number')
+    parser.add_argument('--num', default=8, type=int, help='Retrieval number')
     parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
 
     opt = parser.parse_args()
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     if query_name not in val_data.images:
         raise FileNotFoundError('{} not found'.format(query_name))
     query_index = val_data.images.index(query_name)
-    query_image = Image.open(query_name).resize((224, 224), resample=Image.BILINEAR)
+    query_image = Image.open(query_name).resize((224, 224), resample=Image.BICUBIC)
     query_label = val_data.labels[query_index]
     query_feature = vectors[query_index]
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     os.mkdir(result_path)
     query_image.save('{}/query.jpg'.format(result_path))
     for num, index in enumerate(idx):
-        retrieval_image = Image.open(gallery_images[index.item()]).resize((224, 224), resample=Image.BILINEAR)
+        retrieval_image = Image.open(gallery_images[index.item()]).resize((224, 224), resample=Image.BICUBIC)
         draw = ImageDraw.Draw(retrieval_image)
         retrieval_label = gallery_labels[index.item()]
         retrieval_status = retrieval_label == query_label

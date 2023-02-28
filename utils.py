@@ -1,6 +1,5 @@
 import glob
 import os
-import random
 
 from PIL import Image
 from torch.utils.data.dataset import Dataset
@@ -13,15 +12,18 @@ from metric import sake_metric
 def get_transform(split='train'):
     if split == 'train':
         return transforms.Compose([
-            transforms.Resize((224, 224), interpolation=InterpolationMode.BILINEAR),
+            transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
             transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply([transforms.RandomAffine(degrees=30, translate=(0.1, 0.1), scale=(0.7, 1.3),
+                                                            interpolation=InterpolationMode.BICUBIC)], p=0.5),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
     else:
         return transforms.Compose([
-            transforms.Resize((224, 224), interpolation=InterpolationMode.BILINEAR),
+            transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 
 
 class DomainDataset(Dataset):
@@ -37,9 +39,7 @@ class DomainDataset(Dataset):
                 pass
             else:
                 images += sketches
-                # only append sketches for train
-                if split == 'val':
-                    images += photos
+                images += photos
         self.images = sorted(images)
         self.transform = get_transform(split)
 
@@ -52,29 +52,18 @@ class DomainDataset(Dataset):
                 self.classes[label] = i
                 i += 1
             self.labels.append(self.classes[label])
-        # store photos for each class to easy sample for sketch in training period
-        if split == 'train':
-            self.refs = {}
-            for key, value in self.classes.items():
-                self.refs[value] = sorted(glob.glob(os.path.join(data_root, data_name, split, 'photo', key, '*.jpg')))
 
         self.names = {}
         for key, value in self.classes.items():
             self.names[value] = key
 
-        self.split = split
-
     def __getitem__(self, index):
-        img = Image.open(self.images[index])
-        img = self.transform(img)
+        img_name = self.images[index]
+        domain = self.domains[index]
         label = self.labels[index]
-        if self.split == 'val':
-            domain = self.domains[index]
-            return img, domain, label
-        else:
-            ref = Image.open(random.choice(self.refs[label]))
-            ref = self.transform(ref)
-            return img, ref, label
+        img = Image.open(img_name)
+        img = self.transform(img)
+        return img, domain, label, img_name
 
     def __len__(self):
         return len(self.images)
