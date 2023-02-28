@@ -58,6 +58,10 @@ class DomainDataset(Dataset):
             for key, value in self.classes.items():
                 self.refs[value] = sorted(glob.glob(os.path.join(data_root, data_name, split, 'photo', key, '*.jpg')))
 
+        self.names = {}
+        for key, value in self.classes.items():
+            self.names[value] = key
+
         self.split = split
 
     def __getitem__(self, index):
@@ -91,4 +95,3 @@ def compute_metric(vectors, domains, labels):
     # the mean value is chosen as the representative of precise
     acc['precise'] = (acc['P@100'] + acc['P@200'] + acc['mAP@200'] + acc['mAP@all']) / 4
     return acc
-

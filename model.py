@@ -1,24 +1,6 @@
 import timm
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
-import math
-
-
-class ProxyLinear(nn.Module):
-    def __init__(self, in_features, out_features):
-        super(ProxyLinear, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-
-    def forward(self, x):
-        output = x.matmul(F.normalize(self.weight, dim=-1).t())
-        return output
-
-    def extra_repr(self):
-        return 'in_features={}, out_features={}'.format(self.in_features, self.out_features)
 
 
 class ResidualBlock(nn.Module):
@@ -102,18 +84,21 @@ class Discriminator(nn.Module):
 
 
 class Extractor(nn.Module):
-    def __init__(self, backbone_type, emb_dim, num_classes):
+    def __init__(self, backbone_type, emb_dim, proxies):
         super(Extractor, self).__init__()
 
         # backbone
         model_name = 'resnet50' if backbone_type == 'resnet50' else 'vgg16'
         self.backbone = timm.create_model(model_name, pretrained=True, num_classes=emb_dim, global_pool='max')
-        self.fc = ProxyLinear(emb_dim, num_classes)
+        # self.proxies = nn.Parameter(torch.Tensor(len(proxies), emb_dim))
+        # nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
+        # self.register_buffer('proxies', proxies)
+        self.proxies = nn.Parameter(proxies)
 
     def forward(self, x):
         x = self.backbone(x)
         feature = F.normalize(x, dim=-1)
-        classes = self.fc(feature)
+        classes = feature.matmul(F.normalize(self.proxies, dim=-1).t())
         return feature, classes
 
 

@@ -1,6 +1,8 @@
 import argparse
 import os
 import random
+
+import clip
 import numpy as np
 import pandas as pd
 import torch
@@ -9,7 +11,7 @@ from torch.backends import cudnn
 from torch.optim import Adam
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
-import clip
+
 from model import Extractor, Discriminator, Generator, set_bn_eval
 from utils import DomainDataset, compute_metric
 
@@ -146,7 +148,12 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, num_workers=8)
 
     # model define
-    extractor = Extractor(backbone_type, emb_dim, len(train_data.classes)).cuda()
+    clip_model, preprocess = clip.load('ViT-B/32', device='cuda')
+    text = torch.cat([clip.tokenize(f"a photo of a {train_data.names[c]}") for c in sorted(train_data.names.keys())])
+    with torch.no_grad():
+        text_features = clip_model.encode_text(text.cuda())
+
+    extractor = Extractor(backbone_type, emb_dim, text_features.float().cpu()).cuda()
     generator = Generator(in_channels=8, num_block=8).cuda()
     discriminator = Discriminator(in_channels=8).cuda()
 
