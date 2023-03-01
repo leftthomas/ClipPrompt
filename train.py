@@ -91,7 +91,8 @@ if __name__ == '__main__':
 
     # model and loss setup
     clip_model, preprocess = clip.load('ViT-B/32', device='cuda')
-    text = torch.cat([clip.tokenize(f"a photo of a {train_data.names[c]}") for c in sorted(train_data.names.keys())])
+    text = torch.cat([clip.tokenize('a photo of a {}'.format(train_data.names[c].replace('_', ' ')))
+                      for c in sorted(train_data.names.keys())])
     with torch.no_grad():
         text_features = clip_model.encode_text(text.cuda())
 

@@ -1,5 +1,3 @@
-import math
-
 import timm
 import torch
 import torch.nn as nn
@@ -49,9 +47,9 @@ class Model(nn.Module):
         self.proj = nn.Linear(sum(dims), proj_dim)
 
         # proxy
-        self.proxies = nn.Parameter(torch.Tensor(len(proxies), proj_dim))
-        nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
-        # self.register_buffer('proxies', proxies)
+        # self.proxies = nn.Parameter(torch.Tensor(len(proxies), proj_dim))
+        # nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
+        self.register_buffer('proxies', proxies)
         # self.proxies = nn.Parameter(proxies)
 
     def forward(self, img):
