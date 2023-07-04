@@ -1,29 +1,21 @@
+import argparse
 import glob
 import os
+import random
 
+import numpy as np
+import torch
 from PIL import Image
+from torch.backends import cudnn
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
-from torchvision.transforms import InterpolationMode
 
 from metric import sake_metric
 
 
-def get_transform(split='train'):
-    if split == 'train':
-        return transforms.Compose([
-            transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
-            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomApply([transforms.RandomAffine(degrees=30, translate=(0.1, 0.1), scale=(0.7, 1.3),
-                                                            interpolation=InterpolationMode.BICUBIC)], p=0.5),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
-    else:
-        return transforms.Compose([
-            transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+def get_transform():
+    return transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(),
+                               transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 
 
 class DomainDataset(Dataset):
@@ -84,3 +76,28 @@ def compute_metric(vectors, domains, labels):
     # the mean value is chosen as the representative of precise
     acc['precise'] = (acc['P@100'] + acc['P@200'] + acc['mAP@200'] + acc['mAP@all']) / 4
     return acc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train Model')
+    # common args
+    parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
+    parser.add_argument('--data_name', default='sketchy', type=str, choices=['sketchy', 'tuberlin'],
+                        help='Dataset name')
+    parser.add_argument('--prompt_dim', default=512, type=int, help='Prompt embedding dim')
+    parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
+    parser.add_argument('--epochs', default=10, type=int, help='Number of epochs over the model to train')
+    parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
+    parser.add_argument('--seed', type=int, default=-1, help='random seed (-1 for no manual seed)')
+
+    args = parser.parse_args()
+    if not os.path.exists(args.save_root):
+        os.makedirs(args.save_root)
+    if args.seed >= 0:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+        cudnn.deterministic = True
+        cudnn.benchmark = False
+    return args

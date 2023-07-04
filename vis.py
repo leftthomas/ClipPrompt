@@ -36,7 +36,7 @@ if __name__ == '__main__':
     os.mkdir(result_path)
     vis_image.save('{}/vis.jpg'.format(result_path))
 
-    vis_image = get_transform(split='val')(Image.open(vis_name)).unsqueeze(dim=0).cuda()
+    vis_image = get_transform()(Image.open(vis_name)).unsqueeze(dim=0).cuda()
     with torch.no_grad():
         block_1_atte, block_2_atte, block_3_atte, _ = model(vis_image)
         block_1_atte = cv2.resize(block_1_atte.sum(dim=1).squeeze().cpu().numpy(), size, interpolation=cv2.INTER_CUBIC)

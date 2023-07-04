@@ -1,26 +1,15 @@
-import argparse
 import os
-import random
 
 import clip
-import numpy as np
 import pandas as pd
 import torch
-from torch.backends import cudnn
 from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from model import Model
-from utils import DomainDataset, compute_metric
-
-# for reproducibility
-random.seed(1)
-np.random.seed(1)
-torch.manual_seed(1)
-cudnn.deterministic = True
-cudnn.benchmark = False
+from utils import DomainDataset, compute_metric, parse_args
 
 
 # train for one epoch
@@ -65,21 +54,8 @@ def val(net, data_loader):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train Model')
-    # common args
-    parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
-    parser.add_argument('--data_name', default='sketchy', type=str, choices=['sketchy', 'tuberlin'],
-                        help='Dataset name')
-    parser.add_argument('--backbone_type', default='resnet50', type=str, choices=['resnet50', 'vgg16'],
-                        help='Backbone type')
-    parser.add_argument('--proj_dim', default=512, type=int, help='Projected embedding dim')
-    parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
-    parser.add_argument('--epochs', default=10, type=int, help='Number of epochs over the model to train')
-    parser.add_argument('--warmup', default=1, type=int, help='Number of warmups over the model to train')
-    parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
-
     # args parse
-    args = parser.parse_args()
+    args = parse_args()
     data_root, data_name, backbone_type, proj_dim = args.data_root, args.data_name, args.backbone_type, args.proj_dim
     batch_size, epochs, warmup, save_root = args.batch_size, args.epochs, args.warmup, args.save_root
 
@@ -99,7 +75,9 @@ if __name__ == '__main__':
     model = Model(backbone_type, proj_dim, text_features.float().cpu()).cuda()
     loss_criterion = CrossEntropyLoss()
     # optimizer config
-    optimizer = AdamW(params=model.parameters(), lr=1e-5, weight_decay=5e-4)
+    optimizer = AdamW([{'params': model.backbone.parameters()}, {'params': model.energy_1.parameters()},
+                       {'params': model.energy_2.parameters()}, {'params': model.proj.parameters()},
+                       {'params': model.proxies, 'lr': 1e-3}], lr=1e-5, weight_decay=5e-4)
     # training loop
     results = {'train_loss': [], 'val_precise': [], 'P@100': [], 'P@200': [], 'mAP@200': [], 'mAP@all': []}
     save_name_pre = '{}_{}_{}'.format(data_name, backbone_type, proj_dim)

@@ -36,7 +36,7 @@ class Model(nn.Module):
 
         # backbone
         self.backbone = timm.create_model('seresnet50' if backbone_type == 'resnet50' else 'vgg16_bn',
-                                          features_only=True, out_indices=(2, 3, 4), pretrained=True)
+                                          features_only=True, out_indices=(2, 3, 4), pretrained=False)
         dims = [512, 1024, 2048] if backbone_type == 'resnet50' else [256, 512, 512]
 
         # atte
@@ -49,8 +49,8 @@ class Model(nn.Module):
         # proxy
         # self.proxies = nn.Parameter(torch.Tensor(len(proxies), proj_dim))
         # nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
-        self.register_buffer('proxies', proxies)
-        # self.proxies = nn.Parameter(proxies)
+        # self.register_buffer('proxies', F.normalize(proxies, dim=-1))
+        self.proxies = nn.Parameter(F.normalize(proxies, dim=-1))
 
     def forward(self, img):
         block_1_feat, block_2_feat, block_3_feat = self.backbone(img)

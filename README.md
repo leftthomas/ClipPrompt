@@ -1,7 +1,7 @@
-# EGFF
+# ClipPrompt
 
-A PyTorch implementation of EGFF based on NPL 2022 paper
-[Energy-Guided Feature Fusion for Zero-Shot Sketch-Based Image Retrieval](https://link.springer.com/article/10.1007/s11063-022-10881-y).
+A PyTorch implementation of ClipPrompt based on CVPR 2023 paper
+[CLIP for All Things Zero-Shot Sketch-Based Image Retrieval, Fine-Grained or Not](https://openaccess.thecvf.com/content/CVPR2023/html/Sain_CLIP_for_All_Things_Zero-Shot_Sketch-Based_Image_Retrieval_Fine-Grained_or_CVPR_2023_paper.html).
 
 ![Network Architecture](result/arch.png)
 
@@ -11,7 +11,7 @@ A PyTorch implementation of EGFF based on NPL 2022 paper
 - [PyTorch](https://pytorch.org)
 
 ```
-conda install pytorch=1.10.1 torchvision cudatoolkit -c pytorch
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 ```
 
 - [Pytorch Metric Learning](https://kevinmusgrave.github.io/pytorch-metric-learning/)
@@ -20,7 +20,7 @@ conda install pytorch=1.10.1 torchvision cudatoolkit -c pytorch
 pip install pytorch-metric-learning
 ```
 
-- [Timm](https://rwightman.github.io/pytorch-image-models/)
+- [Timm](https://github.com/huggingface/pytorch-image-models)
 
 ```
 pip install timm
@@ -100,7 +100,7 @@ optional arguments:
 ## Benchmarks
 
 The models are trained on one NVIDIA GeForce RTX 3090 (24G) GPU. `AdamW` is used to optimize the model, `lr` is `1e-5`
-and `weight decay` is `5e-4`. all the hyper-parameters are the default values.
+and `weight decay` is `5e-4`. all the hyperparameters are the default values.
 
 <table>
 <thead>
