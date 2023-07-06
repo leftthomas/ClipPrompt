@@ -1,8 +1,8 @@
-import clip
 import pandas as pd
 import torch
-from torch.nn import CrossEntropyLoss
-from torch.optim import AdamW
+import torch.nn.functional as F
+from torch.nn import TripletMarginWithDistanceLoss
+from torch.optim import Adam
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -15,14 +15,17 @@ def train(net, data_loader, train_optimizer):
     net.train()
     total_loss, total_num, train_bar = 0.0, 0, tqdm(data_loader, dynamic_ncols=True)
     for img, pos, neg, label in train_bar:
-        _, _, _, proj, classes = net(img.cuda())
-        loss = loss_criterion(classes / 0.05, label.cuda())
+        sketch_proj = net(img.cuda(), img_type='sketch')
+        pos_proj = net(pos.cuda(), img_type='photo')
+        neg_proj = net(neg.cuda(), img_type='photo')
+        loss = loss_criterion(sketch_proj, pos_proj, neg_proj)
         train_optimizer.zero_grad()
         loss.backward()
         train_optimizer.step()
         total_num += img.size(0)
         total_loss += loss.item() * img.size(0)
-        train_bar.set_description('Train Epoch: [{}/{}] Loss: {:.4f}'.format(epoch, epochs, total_loss / total_num))
+        train_bar.set_description('Train Epoch: [{}/{}] Loss: {:.4f}'
+                                  .format(epoch, args.epochs, total_loss / total_num))
 
     return total_loss / total_num
 
@@ -59,34 +62,26 @@ if __name__ == '__main__':
     val_data = DomainDataset(args.data_root, args.data_name, split='val')
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=8)
     val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=8)
-
     # model and loss setup
-    clip_model, preprocess = clip.load('ViT-B/32', device='cuda')
-    text = torch.cat([clip.tokenize('a photo of a {}'.format(train_data.names[c].replace('_', ' ')))
-                      for c in sorted(train_data.names.keys())])
-    with torch.no_grad():
-        text_features = clip_model.encode_text(text.cuda())
-
-    model = Model(args.prompt_dim, text_features.float().cpu()).cuda()
-    loss_criterion = CrossEntropyLoss()
+    model = Model(args.prompt_num, args.prompt_dim).cuda()
+    loss_criterion = TripletMarginWithDistanceLoss(distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y),
+                                                   margin=0.2)
     # optimizer config
-    optimizer = AdamW([{'params': model.backbone.parameters()}, {'params': model.energy_1.parameters()},
-                       {'params': model.energy_2.parameters()}, {'params': model.proj.parameters()},
-                       {'params': model.proxies, 'lr': 1e-3}], lr=1e-5, weight_decay=5e-4)
+    optimizer = Adam([{'params': model.clip_model.parameters(), 'lr': 1e-4},
+                      {'params': [model.sketch_prompt, model.photo_prompt], 'lr': 1e-3}])
     # training loop
     results = {'train_loss': [], 'val_precise': [], 'P@100': [], 'P@200': [], 'mAP@200': [], 'mAP@all': []}
-    save_name_pre = '{}_{}_{}'.format(data_name, backbone_type, proj_dim)
+    save_name_pre = '{}_{}_{}'.format(args.data_name, args.prompt_num, args.prompt_dim)
     best_precise = 0.0
     for epoch in range(1, args.epochs + 1):
-        train_loss = train(None, train_loader, None)
+        train_loss = train(model, train_loader, optimizer)
         results['train_loss'].append(train_loss)
         val_precise, features = val(model, val_loader)
         results['val_precise'].append(val_precise * 100)
         # save statistics
         data_frame = pd.DataFrame(data=results, index=range(1, epoch + 1))
-        data_frame.to_csv('{}/{}_results.csv'.format(save_root, save_name_pre), index_label='epoch')
+        data_frame.to_csv('{}/{}_results.csv'.format(args.save_root, save_name_pre), index_label='epoch')
 
         if val_precise > best_precise:
             best_precise = val_precise
-            torch.save(model.state_dict(), '{}/{}_model.pth'.format(save_root, save_name_pre))
-            torch.save(features, '{}/{}_vectors.pth'.format(save_root, save_name_pre))
+            torch.save(model.state_dict(), '{}/{}_model.pth'.format(args.save_root, save_name_pre))

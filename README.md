@@ -20,12 +20,6 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvi
 pip install pytorch-metric-learning
 ```
 
-- [Timm](https://github.com/huggingface/pytorch-image-models)
-
-```
-pip install timm
-```
-
 - [OpenCV](https://opencv.org)
 
 ```

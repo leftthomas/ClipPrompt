@@ -95,7 +95,8 @@ def parse_args(mode='train'):
     parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
     parser.add_argument('--data_name', default='sketchy', type=str, choices=['sketchy', 'tuberlin'],
                         help='Dataset name')
-    parser.add_argument('--prompt_dim', default=512, type=int, help='Prompt embedding dim')
+    parser.add_argument('--prompt_num', default=3, type=int, help='Number of prompt embedding')
+    parser.add_argument('--prompt_dim', default=768, type=int, help='Dimension of prompt embedding')
     parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
     parser.add_argument('--seed', type=int, default=-1, help='random seed (-1 for no manual seed)')
     if mode == 'train':
