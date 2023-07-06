@@ -22,7 +22,9 @@ class DomainDataset(Dataset):
     def __init__(self, data_root, data_name, split='train'):
         super(DomainDataset, self).__init__()
 
-        images = []
+        self.split = split
+
+        images, self.refs = [], {}
         for classes in os.listdir(os.path.join(data_root, data_name, split, 'sketch')):
             sketches = glob.glob(os.path.join(data_root, data_name, split, 'sketch', str(classes), '*.jpg'))
             photos = glob.glob(os.path.join(data_root, data_name, split, 'photo', str(classes), '*.jpg'))
@@ -31,9 +33,12 @@ class DomainDataset(Dataset):
                 pass
             else:
                 images += sketches
-                images += photos
+                if split == 'val':
+                    images += photos
+                else:
+                    self.refs[str(classes)] = photos
         self.images = sorted(images)
-        self.transform = get_transform(split)
+        self.transform = get_transform()
 
         self.domains, self.labels, self.classes = [], [], {}
         i = 0
@@ -53,9 +58,15 @@ class DomainDataset(Dataset):
         img_name = self.images[index]
         domain = self.domains[index]
         label = self.labels[index]
-        img = Image.open(img_name)
-        img = self.transform(img)
-        return img, domain, label, img_name
+        img = self.transform(Image.open(img_name))
+        if self.split == 'train':
+            pos_name = np.random.choice(self.refs[self.names[label]])
+            neg_name = np.random.choice(self.refs[np.random.choice(list(self.classes.keys() - [self.names[label]]))])
+            pos = self.transform(Image.open(pos_name))
+            neg = self.transform(Image.open(neg_name))
+            return img, pos, neg, label
+        else:
+            return img, domain, label
 
     def __len__(self):
         return len(self.images)
@@ -78,17 +89,22 @@ def compute_metric(vectors, domains, labels):
     return acc
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Train Model')
+def parse_args(mode='train'):
+    parser = argparse.ArgumentParser(description='Train/Test Model')
     # common args
     parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
     parser.add_argument('--data_name', default='sketchy', type=str, choices=['sketchy', 'tuberlin'],
                         help='Dataset name')
     parser.add_argument('--prompt_dim', default=512, type=int, help='Prompt embedding dim')
-    parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
-    parser.add_argument('--epochs', default=10, type=int, help='Number of epochs over the model to train')
     parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
     parser.add_argument('--seed', type=int, default=-1, help='random seed (-1 for no manual seed)')
+    if mode == 'train':
+        parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
+        parser.add_argument('--epochs', default=10, type=int, help='Number of epochs over the model to train')
+    else:
+        parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
+                            help='Query image name')
+        parser.add_argument('--num', default=8, type=int, help='Retrieval number')
 
     args = parser.parse_args()
     if not os.path.exists(args.save_root):

@@ -1,5 +1,3 @@
-import os
-
 import clip
 import pandas as pd
 import torch
@@ -16,7 +14,7 @@ from utils import DomainDataset, compute_metric, parse_args
 def train(net, data_loader, train_optimizer):
     net.train()
     total_loss, total_num, train_bar = 0.0, 0, tqdm(data_loader, dynamic_ncols=True)
-    for img, domain, label, img_name in train_bar:
+    for img, pos, neg, label in train_bar:
         _, _, _, proj, classes = net(img.cuda())
         loss = loss_criterion(classes / 0.05, label.cuda())
         train_optimizer.zero_grad()
@@ -55,15 +53,12 @@ def val(net, data_loader):
 
 if __name__ == '__main__':
     # args parse
-    args = parse_args()
-    data_root, data_name, backbone_type, proj_dim = args.data_root, args.data_name, args.backbone_type, args.proj_dim
-    batch_size, epochs, warmup, save_root = args.batch_size, args.epochs, args.warmup, args.save_root
-
+    args = parse_args(mode='train')
     # data prepare
-    train_data = DomainDataset(data_root, data_name, split='train')
-    val_data = DomainDataset(data_root, data_name, split='val')
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, num_workers=8)
+    train_data = DomainDataset(args.data_root, args.data_name, split='train')
+    val_data = DomainDataset(args.data_root, args.data_name, split='val')
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=8)
+    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=8)
 
     # model and loss setup
     clip_model, preprocess = clip.load('ViT-B/32', device='cuda')
@@ -72,7 +67,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         text_features = clip_model.encode_text(text.cuda())
 
-    model = Model(backbone_type, proj_dim, text_features.float().cpu()).cuda()
+    model = Model(args.prompt_dim, text_features.float().cpu()).cuda()
     loss_criterion = CrossEntropyLoss()
     # optimizer config
     optimizer = AdamW([{'params': model.backbone.parameters()}, {'params': model.energy_1.parameters()},
@@ -81,16 +76,9 @@ if __name__ == '__main__':
     # training loop
     results = {'train_loss': [], 'val_precise': [], 'P@100': [], 'P@200': [], 'mAP@200': [], 'mAP@all': []}
     save_name_pre = '{}_{}_{}'.format(data_name, backbone_type, proj_dim)
-    if not os.path.exists(save_root):
-        os.makedirs(save_root)
     best_precise = 0.0
-    for epoch in range(1, epochs + 1):
-
-        # warmup, not update the parameters of backbone
-        for param in model.backbone.parameters():
-            param.requires_grad = False if epoch <= warmup else True
-
-        train_loss = train(model, train_loader, optimizer)
+    for epoch in range(1, args.epochs + 1):
+        train_loss = train(None, train_loader, None)
         results['train_loss'].append(train_loss)
         val_precise, features = val(model, val_loader)
         results['val_precise'].append(val_precise * 100)

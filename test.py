@@ -1,4 +1,3 @@
-import argparse
 import os
 import shutil
 
@@ -8,15 +7,6 @@ from PIL import Image, ImageDraw
 from utils import DomainDataset
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Test Model')
-    parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
-    parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
-                        help='Query image name')
-    parser.add_argument('--data_base', default='result/sketchy_resnet50_512_vectors.pth', type=str,
-                        help='Queried database')
-    parser.add_argument('--num', default=8, type=int, help='Retrieval number')
-    parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
-
     opt = parser.parse_args()
 
     data_root, query_name, data_base, retrieval_num = opt.data_root, opt.query_name, opt.data_base, opt.num
