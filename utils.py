@@ -96,12 +96,11 @@ def parse_args(mode='train'):
     parser.add_argument('--data_name', default='sketchy', type=str, choices=['sketchy', 'tuberlin'],
                         help='Dataset name')
     parser.add_argument('--prompt_num', default=3, type=int, help='Number of prompt embedding')
-    parser.add_argument('--prompt_dim', default=768, type=int, help='Dimension of prompt embedding')
     parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
     parser.add_argument('--seed', type=int, default=-1, help='random seed (-1 for no manual seed)')
     if mode == 'train':
         parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
-        parser.add_argument('--epochs', default=10, type=int, help='Number of epochs over the model to train')
+        parser.add_argument('--epochs', default=60, type=int, help='Number of epochs over the model to train')
     else:
         parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
                             help='Query image name')

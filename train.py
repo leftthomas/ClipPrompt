@@ -35,7 +35,7 @@ def val(net, data_loader):
     net.eval()
     vectors, domains, labels = [], [], []
     with torch.no_grad():
-        for img, domain, label, img_name in tqdm(data_loader, desc='Feature extracting', dynamic_ncols=True):
+        for img, domain, label in tqdm(data_loader, desc='Feature extracting', dynamic_ncols=True):
             _, _, _, proj, _ = net(img.cuda())
             vectors.append(proj.cpu())
             domains.append(domain)
@@ -63,15 +63,15 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=8)
     val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=8)
     # model and loss setup
-    model = Model(args.prompt_num, args.prompt_dim).cuda()
+    model = Model(args.prompt_num).cuda()
     loss_criterion = TripletMarginWithDistanceLoss(distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y),
-                                                   margin=0.2)
+                                                   margin=0.3)
     # optimizer config
-    optimizer = Adam([{'params': model.clip_model.parameters(), 'lr': 1e-4},
-                      {'params': [model.sketch_prompt, model.photo_prompt], 'lr': 1e-3}])
+    optimizer = Adam([{'params': model.sketch_encoder.parameters(), 'lr': 1e-4},
+                      {'params': [model.sketch_prompt, model.photo_prompt], 'lr': 1e-5}])
     # training loop
     results = {'train_loss': [], 'val_precise': [], 'P@100': [], 'P@200': [], 'mAP@200': [], 'mAP@all': []}
-    save_name_pre = '{}_{}_{}'.format(args.data_name, args.prompt_num, args.prompt_dim)
+    save_name_pre = '{}_{}'.format(args.data_name, args.prompt_num)
     best_precise = 0.0
     for epoch in range(1, args.epochs + 1):
         train_loss = train(model, train_loader, optimizer)

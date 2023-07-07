@@ -3,8 +3,7 @@ from typing import Tuple, Union
 
 import torch
 from clip.clip import _MODELS, _download, available_models
-from clip.model import convert_weights, CLIP
-from torch import nn
+from clip.model import convert_weights, CLIP, VisionTransformer
 
 
 def load_clip(name: str):
@@ -98,7 +97,7 @@ class PromptCLIP(CLIP):
                          vocab_size, transformer_width, transformer_heads, transformer_layers)
         if not isinstance(vision_layers, (tuple, list)):
             vision_heads = vision_width // 64
-            self.visual = VisionTransformer(
+            self.visual = PromptVisionTransformer(
                 input_resolution=image_resolution,
                 patch_size=vision_patch_size,
                 width=vision_width,
@@ -107,13 +106,10 @@ class PromptCLIP(CLIP):
                 output_dim=embed_dim)
 
     def encode_image(self, image, prompt=None):
-        if prompt is not None:
-            return self.visual(image.type(self.dtype), prompt.type(self.dtype))
-        else:
-            return self.visual(image.type(self.dtype))
+        return self.visual(image.type(self.dtype), prompt.type(self.dtype))
 
 
-class VisionTransformer(nn.Module):
+class PromptVisionTransformer(VisionTransformer):
     def forward(self, x: torch.Tensor, prompt: torch.Tensor = None):
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
@@ -123,8 +119,8 @@ class VisionTransformer(nn.Module):
              x], dim=1)  # shape = [*, grid ** 2 + 1, width]
         x = x + self.positional_embedding.to(x.dtype)
         if prompt is not None:
-            # prompt should be of shape [*, N, width]
-            x = torch.cat([prompt, x], dim=1)  # [*, grid ** 2 + 1 + N, width]
+            # prompt should be of shape [*, K, width]
+            x = torch.cat([prompt, x], dim=1)  # [*, grid ** 2 + 1 + K, width]
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND
