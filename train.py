@@ -50,9 +50,9 @@ def val(net, data_loader):
     with torch.no_grad():
         for img, domain, label in tqdm(data_loader, desc='Feature extracting', dynamic_ncols=True):
             emb = net(img.cuda(), img_type='photo' if domain == 0 else 'sketch')
-            vectors.append(emb.cpu())
-            domains.append(domain)
-            labels.append(label)
+            vectors.append(emb)
+            domains.append(domain.cuda())
+            labels.append(label.cuda())
         vectors = torch.cat(vectors, dim=0)
         domains = torch.cat(domains, dim=0)
         labels = torch.cat(labels, dim=0)
@@ -104,4 +104,4 @@ if __name__ == '__main__':
         if val_precise > best_precise:
             best_precise = val_precise
             torch.save(model.state_dict(), '{}/{}_model.pth'.format(args.save_root, save_name_pre))
-            torch.save(features, '{}/{}_vectors.pth'.format(args.save_root, save_name_pre))
+            torch.save(features.cpu(), '{}/{}_vectors.pth'.format(args.save_root, save_name_pre))

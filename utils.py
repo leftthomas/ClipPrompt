@@ -5,12 +5,12 @@ import random
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from torch.backends import cudnn
 from torch.utils.data.dataset import Dataset
+from torchmetrics.functional.retrieval import retrieval_precision, retrieval_average_precision
 from torchvision import transforms
-
-from metric import sake_metric
 
 
 def get_transform():
@@ -75,16 +75,24 @@ class DomainDataset(Dataset):
 
 def compute_metric(vectors, domains, labels):
     acc = {}
+    sketch_vectors, photo_vectors = vectors[domains == 1], vectors[domains == 0]
+    sketch_labels, photo_labels = labels[domains == 1], labels[domains == 0]
+    precs_100, precs_200, maps_200, maps_all = 0, 0, 0, 0
+    for sketch_vector, sketch_label in zip(sketch_vectors, sketch_labels):
+        sim = F.cosine_similarity(sketch_vector.unsqueeze(dim=0), photo_vectors).squeeze(dim=0)
+        target = torch.zeros_like(sim, dtype=torch.bool)
+        target[sketch_label == photo_labels] = True
+        precs_100 += retrieval_precision(sim, target, top_k=100).item()
+        precs_200 += retrieval_precision(sim, target, top_k=200).item()
+        maps_200 += retrieval_average_precision(sim, target, top_k=200).item()
+        maps_all += retrieval_average_precision(sim, target).item()
 
-    photo_vectors = vectors[domains == 0].numpy()
-    sketch_vectors = vectors[domains == 1].numpy()
-    photo_labels = labels[domains == 0].numpy()
-    sketch_labels = labels[domains == 1].numpy()
-    map_all, p_100 = sake_metric(photo_vectors, photo_labels, sketch_vectors, sketch_labels)
-    map_200, p_200 = sake_metric(photo_vectors, photo_labels, sketch_vectors, sketch_labels,
-                                 {'precision': 200, 'map': 200})
+    prec_100 = precs_100 / sketch_vectors.shape[0]
+    prec_200 = precs_200 / sketch_vectors.shape[0]
+    map_200 = maps_200 / sketch_vectors.shape[0]
+    map_all = maps_all / sketch_vectors.shape[0]
 
-    acc['P@100'], acc['P@200'], acc['mAP@200'], acc['mAP@all'] = p_100, p_200, map_200, map_all
+    acc['P@100'], acc['P@200'], acc['mAP@200'], acc['mAP@all'] = prec_100, prec_200, map_200, map_all
     # the mean value is chosen as the representative of precise
     acc['precise'] = (acc['P@100'] + acc['P@200'] + acc['mAP@200'] + acc['mAP@all']) / 4
     return acc

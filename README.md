@@ -17,7 +17,7 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvi
 - [TorchMetrics](https://torchmetrics.readthedocs.io/en/stable/)
 
 ```
-conda install -c conda-forge torchmetrics
+pip install torchmetrics
 ```
 
 - [OpenCV](https://opencv.org)
