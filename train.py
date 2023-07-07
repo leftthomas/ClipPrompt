@@ -1,7 +1,8 @@
+import clip
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.nn import TripletMarginWithDistanceLoss
+from torch.nn import TripletMarginWithDistanceLoss, CrossEntropyLoss
 from torch.optim import Adam
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
@@ -15,10 +16,22 @@ def train(net, data_loader, train_optimizer):
     net.train()
     total_loss, total_num, train_bar = 0.0, 0, tqdm(data_loader, dynamic_ncols=True)
     for img, pos, neg, label in train_bar:
-        sketch_proj = net(img.cuda(), img_type='sketch')
-        pos_proj = net(pos.cuda(), img_type='photo')
-        neg_proj = net(neg.cuda(), img_type='photo')
-        loss = loss_criterion(sketch_proj, pos_proj, neg_proj)
+        sketch_emb = net(img.cuda(), img_type='sketch')
+        pos_emb = net(pos.cuda(), img_type='photo')
+        neg_emb = net(neg.cuda(), img_type='photo')
+        triplet_loss = triplet_criterion(sketch_emb, pos_emb, neg_emb)
+
+        # normalized embeddings
+        sketch_emb = F.normalize(sketch_emb, dim=-1)
+        pos_emb = F.normalize(pos_emb, dim=-1)
+        # cosine similarity as logits
+        logit_scale = 1.0 / net.clip_model.logit_scale
+        logits_sketch = logit_scale * sketch_emb @ text_emb.t()
+        logits_pos = logit_scale * pos_emb @ text_emb.t()
+
+        cls_sketch_loss = cls_criterion(logits_sketch, label.cuda())
+        cls_photo_loss = cls_criterion(logits_pos, label.cuda())
+        loss = triplet_loss + (cls_sketch_loss + cls_photo_loss) * args.cls_weight
         train_optimizer.zero_grad()
         loss.backward()
         train_optimizer.step()
@@ -64,11 +77,17 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=8)
     # model and loss setup
     model = Model(args.prompt_num).cuda()
-    loss_criterion = TripletMarginWithDistanceLoss(distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y),
-                                                   margin=0.3)
+    triplet_criterion = TripletMarginWithDistanceLoss(distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y),
+                                                      margin=args.triplet_margin)
+    text = torch.cat([clip.tokenize('a photo of a {}'.format(train_data.names[c].replace('_', ' ')))
+                      for c in sorted(train_data.names.keys())])
+    with torch.no_grad():
+        text_emb = F.normalize(model.clip_model.encode_text(text.cuda()), dim=-1)
+    cls_criterion = CrossEntropyLoss()
     # optimizer config
-    optimizer = Adam([{'params': model.sketch_encoder.parameters(), 'lr': 1e-4},
-                      {'params': [model.sketch_prompt, model.photo_prompt], 'lr': 1e-5}])
+    optimizer = Adam([{'params': model.sketch_encoder.parameters(), 'lr': args.encoder_lr},
+                      {'params': model.photo_encoder.parameters(), 'lr': args.encoder_lr},
+                      {'params': [model.sketch_prompt, model.photo_prompt], 'lr': args.prompt_lr}])
     # training loop
     results = {'train_loss': [], 'val_precise': [], 'P@100': [], 'P@200': [], 'mAP@200': [], 'mAP@all': []}
     save_name_pre = '{}_{}'.format(args.data_name, args.prompt_num)

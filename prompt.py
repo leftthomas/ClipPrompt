@@ -105,9 +105,6 @@ class PromptCLIP(CLIP):
                 heads=vision_heads,
                 output_dim=embed_dim)
 
-    def encode_image(self, image, prompt=None):
-        return self.visual(image.type(self.dtype), prompt.type(self.dtype))
-
 
 class PromptVisionTransformer(VisionTransformer):
     def forward(self, x: torch.Tensor, prompt: torch.Tensor = None):

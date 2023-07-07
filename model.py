@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 
@@ -16,26 +18,24 @@ class Model(nn.Module):
     def __init__(self, prompt_num):
         super(Model, self).__init__()
         # backbone
-        self.sketch_encoder = load_clip('ViT-B/32').visual
-        self.photo_encoder = load_clip('ViT-B/32').visual
-        for param in self.sketch_encoder.parameters():
+        clip_model = load_clip('ViT-B/32')
+        for param in clip_model.parameters():
             param.requires_grad_(False)
-        for param in self.photo_encoder.parameters():
-            param.requires_grad_(False)
-        self.sketch_encoder.apply(unfreeze_ln)
-        self.photo_encoder.apply(unfreeze_ln)
+        visual = clip_model.visual
+        visual.apply(unfreeze_ln)
+        visual.proj.requires_grad_(True)
+
+        self.sketch_encoder = visual
+        self.photo_encoder = copy.deepcopy(visual)
+        self.clip_model = clip_model
 
         # prompts
         self.sketch_prompt = nn.Parameter(torch.randn(prompt_num, self.sketch_encoder.class_embedding.shape[0]))
         self.photo_prompt = nn.Parameter(torch.randn(prompt_num, self.photo_encoder.class_embedding.shape[0]))
 
-    def forward(self, img, img_type='photo'):
-        # text = torch.cat([clip.tokenize('a photo of a {}'.format(train_data.names[c].replace('_', ' ')))
-        #                   for c in sorted(train_data.names.keys())])
-        # with torch.no_grad():
-        #     text_features = clip_model.encode_text(text.cuda())
+    def forward(self, img, img_type):
         if img_type == 'sketch':
-            proj = self.sketch_encoder.encode_image(img, self.sketch_prompt.expand(img.shape[0], -1, -1))
+            proj = self.sketch_encoder(img, self.sketch_prompt.expand(img.shape[0], -1, -1))
         else:
-            proj = self.photo_encoder.encode_image(img, self.photo_prompt.expand(img.shape[0], -1, -1))
+            proj = self.photo_encoder(img, self.photo_prompt.expand(img.shape[0], -1, -1))
         return proj
