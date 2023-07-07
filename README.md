@@ -81,16 +81,6 @@ optional arguments:
 --save_root                   Result saved root path [default value is 'result']
 ```
 
-### Vis Model
-
-```
-python vis.py --model_name result/sketchy_resnet50_2048_model.pth
-optional arguments:
---vis_name                    Visual image name [default value is '/home/data/sketchy/val/photo/helicopter/ext_5.jpg']
---model_name                  Model name [default value is 'result/sketchy_resnet50_512_model.pth']
---save_root                   Result saved root path [default value is 'result']
-```
-
 ## Benchmarks
 
 The models are trained on one NVIDIA GeForce RTX 3090 (24G) GPU. `AdamW` is used to optimize the model, `lr` is `1e-5`

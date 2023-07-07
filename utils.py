@@ -61,7 +61,8 @@ class DomainDataset(Dataset):
         img = self.transform(Image.open(img_name))
         if self.split == 'train':
             pos_name = np.random.choice(self.refs[self.names[label]])
-            neg_name = np.random.choice(self.refs[np.random.choice(list(self.classes.keys() - [self.names[label]]))])
+            remain_classes = sorted(set(self.classes.keys()) - {self.names[label]})
+            neg_name = np.random.choice(self.refs[np.random.choice(remain_classes)])
             pos = self.transform(Image.open(pos_name))
             neg = self.transform(Image.open(neg_name))
             return img, pos, neg, label

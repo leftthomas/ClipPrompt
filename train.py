@@ -104,3 +104,4 @@ if __name__ == '__main__':
         if val_precise > best_precise:
             best_precise = val_precise
             torch.save(model.state_dict(), '{}/{}_model.pth'.format(args.save_root, save_name_pre))
+            torch.save(features, '{}/{}_vectors.pth'.format(args.save_root, save_name_pre))
