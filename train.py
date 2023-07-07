@@ -49,8 +49,8 @@ def val(net, data_loader):
     vectors, domains, labels = [], [], []
     with torch.no_grad():
         for img, domain, label in tqdm(data_loader, desc='Feature extracting', dynamic_ncols=True):
-            _, _, _, proj, _ = net(img.cuda())
-            vectors.append(proj.cpu())
+            emb = net(img.cuda(), img_type='photo' if domain == 0 else 'sketch')
+            vectors.append(emb.cpu())
             domains.append(domain)
             labels.append(label)
         vectors = torch.cat(vectors, dim=0)
@@ -62,7 +62,7 @@ def val(net, data_loader):
         results['mAP@200'].append(acc['mAP@200'] * 100)
         results['mAP@all'].append(acc['mAP@all'] * 100)
         print('Val Epoch: [{}/{}] | P@100:{:.1f}% | P@200:{:.1f}% | mAP@200:{:.1f}% | mAP@all:{:.1f}%'
-              .format(epoch, epochs, acc['P@100'] * 100, acc['P@200'] * 100, acc['mAP@200'] * 100,
+              .format(epoch, args.epochs, acc['P@100'] * 100, acc['P@200'] * 100, acc['mAP@200'] * 100,
                       acc['mAP@all'] * 100))
     return acc['precise'], vectors
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     train_data = DomainDataset(args.data_root, args.data_name, split='train')
     val_data = DomainDataset(args.data_root, args.data_name, split='val')
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=8)
+    val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=8)
     # model and loss setup
     model = Model(args.prompt_num).cuda()
     triplet_criterion = TripletMarginWithDistanceLoss(distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y),
