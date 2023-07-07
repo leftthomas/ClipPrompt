@@ -25,7 +25,7 @@ def train(net, data_loader, train_optimizer):
         sketch_emb = F.normalize(sketch_emb, dim=-1)
         pos_emb = F.normalize(pos_emb, dim=-1)
         # cosine similarity as logits
-        logit_scale = 1.0 / net.clip_model.logit_scale
+        logit_scale = net.clip_model.logit_scale
         logits_sketch = logit_scale * sketch_emb @ text_emb.t()
         logits_pos = logit_scale * pos_emb @ text_emb.t()
 
