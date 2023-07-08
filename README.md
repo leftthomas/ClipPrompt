@@ -125,10 +125,10 @@ and `distance function` is `1.0 - F.cosine_similarity(x, y)`, the other hyperpar
   <tr>
     <td align="center">TU-Berlin Extended</td>
     <td align="center">3</td>
-    <td align="center">36.1</td>
-    <td align="center">39.8</td>
-    <td align="center">52.8</td>
-    <td align="center">48.1</td>
+    <td align="center">75.3</td>
+    <td align="center">66.0</td>
+    <td align="center">73.9</td>
+    <td align="center">69.7</td>
     <td align="center"><a href="https://pan.baidu.com/s/1uGw9MdDVGHYchJ4fXUjIhg">u7qg</a></td>
   </tr>
 </tbody>
