@@ -54,25 +54,51 @@ structure is shown as follows:
 
 ## Usage
 
-### Train Model
+To train a model on `Sketchy Extended` dataset, run:
 
 ```
-python train.py --data_name tuberlin
-optional arguments:
+python main.py --mode train --data_name sketchy
+```
+
+To test a model on `Sketchy Extended` dataset, run:
+
+```
+python main.py --mode test --data_name sketchy --query_name <query image path>
+```
+
+common arguments:
+
+```
 --data_root                   Datasets root path [default value is '/home/data']
 --data_name                   Dataset name [default value is 'sketchy'](choices=['sketchy', 'tuberlin'])
---proj_dim                    Projected embedding dim [default value is 512]
---batch_size                  Number of images in each mini-batch [default value is 64]
---epochs                      Number of epochs over the model to train [default value is 10]
+--prompt_num                  Number of prompt embedding [default value is 3]
 --save_root                   Result saved root path [default value is 'result']
---query_name                  Query image name [default value is '/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg']
---num                         Retrieval number [default value is 8]
+--mode                        Mode of the script [default value is 'train'](choices=['train', 'test'])
+```
+
+train arguments:
+
+```
+--batch_size                  Number of images in each mini-batch [default value is 64]
+--epochs                      Number of epochs over the model to train [default value is 60]
+--triplet_margin              Margin of triplet loss [default value is 0.3]
+--encoder_lr                  Learning rate of encoder [default value is 1e-4]
+--prompt_lr                   Learning rate of prompt embedding [default value is 1e-3]
+--cls_weight                  Weight of classification loss [default value is 0.5]
+--seed                        Random seed (-1 for no manual seed) [default value is -1]
+```
+
+test arguments:
+
+```
+--query_name                  Query image path
+--retrieval_num               Number of retrieved images [default value is 8]
 ```
 
 ## Benchmarks
 
 The models are trained on one NVIDIA GeForce RTX 3090 (24G) GPU. `seed` is `42`, `prompt_lr` is `1e-3`
-and `distance function` is `1.0 - F.cosine_similarity(x, y)`, the other hyper-parameters are the default values.
+and `distance function` is `1.0 - F.cosine_similarity(x, y)`, the other hyperparameters are the default values.
 
 <table>
 <thead>

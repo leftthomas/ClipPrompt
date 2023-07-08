@@ -98,7 +98,7 @@ def compute_metric(vectors, domains, labels):
     return acc
 
 
-def parse_args(mode='train'):
+def parse_args():
     parser = argparse.ArgumentParser(description='Train/Test Model')
     # common args
     parser.add_argument('--data_root', default='/home/data', type=str, help='Datasets root path')
@@ -106,22 +106,22 @@ def parse_args(mode='train'):
                         help='Dataset name')
     parser.add_argument('--prompt_num', default=3, type=int, help='Number of prompt embedding')
     parser.add_argument('--save_root', default='result', type=str, help='Result saved root path')
-    parser.add_argument('--seed', type=int, default=-1, help='random seed (-1 for no manual seed)')
-    if mode == 'train':
-        parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
-        parser.add_argument('--epochs', default=60, type=int, help='Number of epochs over the model to train')
-        parser.add_argument('--triplet_margin', default=0.3, type=float, help='Margin of triplet loss')
-        parser.add_argument('--encoder_lr', default=1e-4, type=float, help='Learning rate of encoder')
-        parser.add_argument('--prompt_lr', default=1e-3, type=float, help='Learning rate of prompt embedding')
-        parser.add_argument('--cls_weight', default=0.5, type=float, help='Weight of classification loss')
-    else:
-        parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
-                            help='Query image name')
-        parser.add_argument('--num', default=8, type=int, help='Retrieval number')
+    parser.add_argument('--mode', default='train', choices=['train', 'test'], type=str, help='Mode of the script')
+
+    # train args
+    parser.add_argument('--batch_size', default=64, type=int, help='Number of images in each mini-batch')
+    parser.add_argument('--epochs', default=60, type=int, help='Number of epochs over the model to train')
+    parser.add_argument('--triplet_margin', default=0.3, type=float, help='Margin of triplet loss')
+    parser.add_argument('--encoder_lr', default=1e-4, type=float, help='Learning rate of encoder')
+    parser.add_argument('--prompt_lr', default=1e-3, type=float, help='Learning rate of prompt embedding')
+    parser.add_argument('--cls_weight', default=0.5, type=float, help='Weight of classification loss')
+    parser.add_argument('--seed', default=-1, type=int, help='random seed (-1 for no manual seed)')
+
+    # test args
+    parser.add_argument('--query_name', type=str, required=True, help='Query image path')
+    parser.add_argument('--retrieval_num', default=8, type=int, help='Number of retrieved images')
 
     args = parser.parse_args()
-    if not os.path.exists(args.save_root):
-        os.makedirs(args.save_root)
     if args.seed >= 0:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -129,4 +129,7 @@ def parse_args(mode='train'):
         torch.cuda.manual_seed_all(args.seed)
         cudnn.deterministic = True
         cudnn.benchmark = False
+
+    if not os.path.exists(args.save_root):
+        os.makedirs(args.save_root)
     return args
