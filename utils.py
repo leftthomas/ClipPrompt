@@ -28,15 +28,11 @@ class DomainDataset(Dataset):
         for classes in os.listdir(os.path.join(data_root, data_name, split, 'sketch')):
             sketches = glob.glob(os.path.join(data_root, data_name, split, 'sketch', str(classes), '*.jpg'))
             photos = glob.glob(os.path.join(data_root, data_name, split, 'photo', str(classes), '*.jpg'))
-            # only consider the classes which photo images >= 400 for tuberlin dataset
-            if len(photos) < 400 and data_name == 'tuberlin' and split == 'val':
-                pass
+            images += sketches
+            if split == 'val':
+                images += photos
             else:
-                images += sketches
-                if split == 'val':
-                    images += photos
-                else:
-                    self.refs[str(classes)] = photos
+                self.refs[str(classes)] = photos
         self.images = sorted(images)
         self.transform = get_transform()
 
