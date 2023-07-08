@@ -118,7 +118,8 @@ def parse_args():
     parser.add_argument('--seed', default=-1, type=int, help='random seed (-1 for no manual seed)')
 
     # test args
-    parser.add_argument('--query_name', type=str, required=True, help='Query image path')
+    parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
+                        help='Query image path')
     parser.add_argument('--retrieval_num', default=8, type=int, help='Number of retrieved images')
 
     args = parser.parse_args()

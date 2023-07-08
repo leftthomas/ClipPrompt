@@ -91,7 +91,7 @@ train arguments:
 test arguments:
 
 ```
---query_name                  Query image path
+--query_name                  Query image path [default value is '/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg']
 --retrieval_num               Number of retrieved images [default value is 8]
 ```
 
