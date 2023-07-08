@@ -112,7 +112,7 @@ def parse_args(mode='train'):
         parser.add_argument('--epochs', default=60, type=int, help='Number of epochs over the model to train')
         parser.add_argument('--triplet_margin', default=0.3, type=float, help='Margin of triplet loss')
         parser.add_argument('--encoder_lr', default=1e-4, type=float, help='Learning rate of encoder')
-        parser.add_argument('--prompt_lr', default=1e-5, type=float, help='Learning rate of prompt embedding')
+        parser.add_argument('--prompt_lr', default=1e-3, type=float, help='Learning rate of prompt embedding')
         parser.add_argument('--cls_weight', default=0.5, type=float, help='Weight of classification loss')
     else:
         parser.add_argument('--query_name', default='/home/data/sketchy/val/sketch/cow/n01887787_591-14.jpg', type=str,
