@@ -14,16 +14,16 @@ A PyTorch implementation of ClipPrompt based on CVPR 2023 paper
 conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 ```
 
-- [TorchMetrics](https://torchmetrics.readthedocs.io/en/stable/)
+- [TorchMetrics](https://lightning.ai/docs/torchmetrics/stable/)
 
 ```
-pip install torchmetrics
+conda install -c conda-forge torchmetrics
 ```
 
-- [OpenCV](https://opencv.org)
+- [CLIP](https://github.com/openai/CLIP)
 
 ```
-pip install opencv-python
+pip install git+https://github.com/openai/CLIP.git
 ```
 
 ## Dataset
